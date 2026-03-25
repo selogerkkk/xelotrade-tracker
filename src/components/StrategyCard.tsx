@@ -9,8 +9,19 @@ interface StrategyCardProps {
 }
 
 export default function StrategyCard({ analise, onClick, isAlert }: StrategyCardProps) {
-  const wrColor = analise.winrateReal >= 75 ? 'text-[#22c55e]' : analise.winrateReal >= 65 ? 'text-[#eab308]' : 'text-[#ef4444]';
-  const barColor = analise.winrateReal >= 75 ? 'bg-[#22c55e]' : analise.winrateReal >= 65 ? 'bg-[#eab308]' : 'bg-[#ef4444]';
+  // Get winrate based on selected gale level
+  const displayWr = analise.galeLevel === 0 ? analise.winrateSemGale
+    : analise.galeLevel === 1 ? analise.winrateG1
+    : analise.winrateReal;
+
+  const displayWins = analise.galeLevel === 0 ? analise.totalWins
+    : analise.galeLevel === 1 ? analise.totalWins + analise.quadrantes.filter(q => q.resultado === 'G1').length
+    : analise.totalWins + analise.totalGales;
+
+  const displayLosses = analise.totalOperacoes - displayWins;
+
+  const wrColor = displayWr >= 75 ? 'text-[#22c55e]' : displayWr >= 65 ? 'text-[#eab308]' : 'text-[#ef4444]';
+  const barColor = displayWr >= 75 ? 'bg-[#22c55e]' : displayWr >= 65 ? 'bg-[#eab308]' : 'bg-[#ef4444]';
 
   const TendenciaIcon = analise.tendencia === 'subindo' ? TrendingUp : analise.tendencia === 'descendo' ? TrendingDown : Minus;
   const tendenciaColor = analise.tendencia === 'subindo' ? 'text-[#22c55e]' : analise.tendencia === 'descendo' ? 'text-[#ef4444]' : 'text-[#8888a0]';
@@ -35,14 +46,13 @@ export default function StrategyCard({ analise, onClick, isAlert }: StrategyCard
       </div>
 
       <div className="flex items-center gap-3 mb-3">
-        <div className={`text-2xl font-bold ${wrColor}`}>{analise.winrateReal.toFixed(1)}%</div>
+        <div className={`text-2xl font-bold ${wrColor}`}>{displayWr.toFixed(1)}%</div>
         <div className="flex-1">
           <div className="h-2 bg-[#2a2a3a] rounded-full overflow-hidden">
-            <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${Math.min(analise.winrateReal, 100)}%` }} />
+            <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${Math.min(displayWr, 100)}%` }} />
           </div>
           <div className="text-[10px] text-[#8888a0] mt-0.5">
-            {analise.totalWins + analise.totalGales}W / {analise.totalLosses}L
-            <span className="text-[#555570] ml-1">({analise.totalWins} direto)</span>
+            {displayWins}W / {displayLosses}L
           </div>
         </div>
       </div>

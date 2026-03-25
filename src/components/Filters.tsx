@@ -1,4 +1,4 @@
-import type { Filters as FiltersType, TimeFrame, GaleLevel, SortBy } from '../types';
+import type { Filters as FiltersType, TimeFrame, GaleLevel, SortBy, Broker, Since } from '../types';
 
 interface FiltersBarProps {
   filters: FiltersType;
@@ -6,6 +6,11 @@ interface FiltersBarProps {
   onRefresh: () => void;
   loading: boolean;
 }
+
+const brokerOptions: { value: Broker; label: string }[] = [
+  { value: 'quotex', label: 'Quotex' },
+  { value: 'iqoption', label: 'IQ Option' },
+];
 
 const timeFrames: { value: TimeFrame; label: string }[] = [
   { value: 1, label: 'M1' },
@@ -20,6 +25,16 @@ const galeOptions: { value: GaleLevel; label: string }[] = [
   { value: 2, label: 'Gale 2' },
 ];
 
+const sinceOptions: { value: Since; label: string }[] = [
+  { value: '3h', label: '3h' },
+  { value: '6h', label: '6h' },
+  { value: '12h', label: '12h' },
+  { value: '24h', label: '24h' },
+  { value: '3d', label: '3d' },
+  { value: '7d', label: '7d' },
+  { value: 'all', label: 'Tudo' },
+];
+
 const sortOptions: { value: SortBy; label: string }[] = [
   { value: 'winrate', label: 'Winrate' },
   { value: 'winrateSemGale', label: 'WR Sem Gale' },
@@ -30,8 +45,28 @@ const sortOptions: { value: SortBy; label: string }[] = [
 
 export default function FiltersBar({ filters, onChange, onRefresh, loading }: FiltersBarProps) {
   return (
-    <div className="bg-[#12121a] border border-[#2a2a3a] rounded-xl p-4 mb-6">
+    <div className="bg-[#12121a] border border-[#2a2a3a] rounded-xl p-4 mb-6 space-y-3">
       <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-[#8888a0] uppercase tracking-wider">Broker</span>
+          <div className="flex gap-1">
+            {brokerOptions.map(b => (
+              <button
+                type="button"
+                key={b.value}
+                onClick={() => onChange({ ...filters, broker: b.value })}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  filters.broker === b.value
+                    ? 'bg-[#22c55e] text-white'
+                    : 'bg-[#1a1a25] text-[#8888a0] hover:bg-[#22222f]'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1">
           <span className="text-xs text-[#8888a0] uppercase tracking-wider">Timeframe</span>
           <div className="flex gap-1">
@@ -72,6 +107,28 @@ export default function FiltersBar({ filters, onChange, onRefresh, loading }: Fi
           </div>
         </div>
 
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-[#8888a0] uppercase tracking-wider">Período</span>
+          <div className="flex gap-1 flex-wrap">
+            {sinceOptions.map(s => (
+              <button
+                type="button"
+                key={s.value}
+                onClick={() => onChange({ ...filters, since: s.value })}
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  filters.since === s.value
+                    ? 'bg-[#eab308] text-black'
+                    : 'bg-[#1a1a25] text-[#8888a0] hover:bg-[#22222f]'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 items-center">
         <div className="flex flex-col gap-1">
           <span className="text-xs text-[#8888a0] uppercase tracking-wider">Ordenar</span>
           <div className="flex gap-1 items-center">

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Settings as SettingsIcon, BarChart3, RefreshCw } from 'lucide-react';
-import type { Filters, AnaliseEstrategia, EstrategiaRaw } from './types';
+import type { Filters, AnaliseEstrategia } from './types';
 import { fetchEstrategias } from './api';
-import { analisarEstrategia } from './utils';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import FiltersBar from './components/Filters';
 import StrategyCard from './components/StrategyCard';
@@ -13,7 +12,7 @@ import './index.css';
 
 function Dashboard() {
   const { settings } = useSettings();
-  const [rawData, setRawData] = useState<EstrategiaRaw[]>([]);
+  const [analises, setAnalises] = useState<AnaliseEstrategia[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedAnalise, setSelectedAnalise] = useState<AnaliseEstrategia | null>(null);
@@ -22,8 +21,10 @@ function Dashboard() {
   const prevAlertsRef = useRef<string>('');
 
   const [filters, setFilters] = useState<Filters>({
+    broker: 'quotex',
     timeFrame: 5,
     gale: 1,
+    since: 'all',
     search: '',
     sortBy: 'winrate',
     sortDir: 'desc',
@@ -33,15 +34,20 @@ function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchEstrategias(filters.timeFrame, filters.gale);
-      setRawData(data);
+      const data = await fetchEstrategias(
+        filters.timeFrame,
+        filters.gale,
+        filters.broker,
+        filters.since
+      );
+      setAnalises(data);
       setAlertsDismissed(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  }, [filters.timeFrame, filters.gale]);
+  }, [filters.timeFrame, filters.gale, filters.broker, filters.since]);
 
   const loadDataRef = useRef(loadData);
   loadDataRef.current = loadData;
@@ -51,13 +57,9 @@ function Dashboard() {
   }, [loadData]);
 
   useEffect(() => {
-    const interval = setInterval(() => loadDataRef.current(), 30000);
+    const interval = setInterval(() => loadDataRef.current(), 60000);
     return () => clearInterval(interval);
   }, []);
-
-  const analises = useMemo(() => {
-    return rawData.map(raw => analisarEstrategia(raw, settings, filters.gale));
-  }, [rawData, settings, filters.gale]);
 
   const filtered = useMemo(() => {
     let result = analises;
@@ -75,7 +77,7 @@ function Dashboard() {
       switch (filters.sortBy) {
         case 'winrate': diff = a.winrateReal - b.winrateReal; break;
         case 'winrateSemGale': diff = a.winrateSemGale - b.winrateSemGale; break;
-        case 'roi': diff = a.roi - b.roi; break;
+        case 'roi': diff = a.roiSemGale - b.roiSemGale; break;
         case 'updated': diff = a.atualizado.localeCompare(b.atualizado); break;
         case 'streak': diff = a.streakAtual.count - b.streakAtual.count; break;
       }
@@ -86,8 +88,13 @@ function Dashboard() {
   }, [analises, filters]);
 
   const alertes = useMemo(() => {
-    return analises.filter(a => a.winrateReal >= settings.alertWinrate);
-  }, [analises, settings.alertWinrate]);
+    return analises.filter(a => {
+      const wr = filters.gale === 0 ? a.winrateSemGale
+        : filters.gale === 1 ? a.winrateG1
+        : a.winrateReal;
+      return wr >= settings.alertWinrate;
+    });
+  }, [analises, settings.alertWinrate, filters.gale]);
 
   useEffect(() => {
     if (settings.alertEnabled && alertes.length > 0) {
@@ -105,11 +112,18 @@ function Dashboard() {
 
   const stats = useMemo(() => {
     if (analises.length === 0) return null;
-    const avgWr = analises.reduce((s, a) => s + a.winrateReal, 0) / analises.length;
-    const best = analises.reduce((b, a) => a.winrateReal > b.winrateReal ? a : b, analises[0]);
+
+    // Get winrate based on selected gale level
+    const getWr = (a: AnaliseEstrategia) =>
+      filters.gale === 0 ? a.winrateSemGale
+      : filters.gale === 1 ? a.winrateG1
+      : a.winrateReal;
+
+    const avgWr = analises.reduce((s, a) => s + getWr(a), 0) / analises.length;
+    const best = analises.reduce((b, a) => getWr(a) > getWr(b) ? a : b, analises[0]);
     const totalOps = analises.reduce((s, a) => s + a.totalOperacoes, 0);
-    return { avgWr: avgWr.toFixed(1), best, totalOps, total: analises.length };
-  }, [analises]);
+    return { avgWr: avgWr.toFixed(1), best, bestWr: getWr(best), totalOps, total: analises.length };
+  }, [analises, filters.gale]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0f5]">
@@ -119,7 +133,10 @@ function Dashboard() {
             <BarChart3 className="w-7 h-7 text-[#3b82f6]" />
             <div>
               <h1 className="text-lg font-bold leading-tight">XeloTrade Tracker</h1>
-              <p className="text-[10px] text-[#8888a0]">Análise de Estratégias em Tempo Real</p>
+              <p className="text-[10px] text-[#8888a0]">
+                {filters.broker === 'quotex' ? 'Quotex' : 'IQ Option'} · M{filters.timeFrame} · Gale {filters.gale}
+                {filters.since !== 'all' && ` · ${filters.since}`}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -158,7 +175,7 @@ function Dashboard() {
             <div className="bg-[#12121a] border border-[#2a2a3a] rounded-xl p-3 text-center">
               <div className="text-[10px] text-[#8888a0] uppercase tracking-wider">Melhor</div>
               <div className="text-lg font-bold text-[#22c55e] truncate">{stats.best.ativo}</div>
-              <div className="text-[10px] text-[#8888a0]">{stats.best.winrateReal.toFixed(1)}%</div>
+              <div className="text-[10px] text-[#8888a0]">{stats.bestWr.toFixed(1)}%</div>
             </div>
             <div className="bg-[#12121a] border border-[#2a2a3a] rounded-xl p-3 text-center">
               <div className="text-[10px] text-[#8888a0] uppercase tracking-wider">Total Operações</div>
@@ -183,24 +200,29 @@ function Dashboard() {
           </div>
         )}
 
-        {loading && rawData.length === 0 ? (
+        {loading && analises.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin" />
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map(a => (
-              <StrategyCard
-                key={a.id}
-                analise={a}
-                onClick={() => setSelectedAnalise(a)}
-                isAlert={a.winrateReal >= settings.alertWinrate}
-              />
-            ))}
+            {filtered.map(a => {
+              const displayWr = filters.gale === 0 ? a.winrateSemGale
+                : filters.gale === 1 ? a.winrateG1
+                : a.winrateReal;
+              return (
+                <StrategyCard
+                  key={a.id}
+                  analise={a}
+                  onClick={() => setSelectedAnalise(a)}
+                  isAlert={displayWr >= settings.alertWinrate}
+                />
+              );
+            })}
           </div>
         )}
 
-        {!loading && filtered.length === 0 && rawData.length > 0 && (
+        {!loading && filtered.length === 0 && analises.length > 0 && (
           <div className="text-center py-20 text-[#8888a0]">
             Nenhuma estratégia encontrada com os filtros atuais
           </div>

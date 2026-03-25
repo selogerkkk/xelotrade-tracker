@@ -1,4 +1,5 @@
-import { X, TrendingUp, TrendingDown, Minus, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { X, TrendingUp, TrendingDown, Minus, Trophy, ChevronDown } from 'lucide-react';
 import type { AnaliseEstrategia } from '../types';
 import { formatHorario, formatData } from '../utils';
 import PerformanceChart from './PerformanceChart';
@@ -18,12 +19,19 @@ function getRoiColor(roi: number) {
 
 export default function DetailModal({ analise, onClose }: Props) {
   const { settings } = useSettings();
+  const [showAll, setShowAll] = useState(false);
 
   if (!analise) return null;
 
   const TendenciaIcon = analise.tendencia === 'subindo' ? TrendingUp : analise.tendencia === 'descendo' ? TrendingDown : Minus;
   const tendenciaColor = analise.tendencia === 'subindo' ? 'text-[#22c55e]' : analise.tendencia === 'descendo' ? 'text-[#ef4444]' : 'text-[#8888a0]';
-  const wrColor = analise.winrateReal >= 75 ? 'text-[#22c55e]' : analise.winrateReal >= 65 ? 'text-[#eab308]' : 'text-[#ef4444]';
+
+  // Get display winrate based on selected gale level
+  const displayWr = analise.galeLevel === 0 ? analise.winrateSemGale
+    : analise.galeLevel === 1 ? analise.winrateG1
+    : analise.winrateReal;
+
+  const wrColor = displayWr >= 75 ? 'text-[#22c55e]' : displayWr >= 65 ? 'text-[#eab308]' : 'text-[#ef4444]';
 
   const g1Count = analise.quadrantes.filter(q => q.resultado === 'G1').length;
   const g2Count = analise.quadrantes.filter(q => q.resultado === 'G2').length;
@@ -62,7 +70,7 @@ export default function DetailModal({ analise, onClose }: Props) {
           </div>
           <div className="flex items-center gap-3">
             <TendenciaIcon className={`w-5 h-5 ${tendenciaColor}`} />
-            <span className={`text-2xl font-bold ${wrColor}`}>{analise.winrateReal.toFixed(1)}%</span>
+            <span className={`text-2xl font-bold ${wrColor}`}>{displayWr.toFixed(1)}%</span>
             <button type="button" onClick={onClose} className="text-[#8888a0] hover:text-[#f0f0f5] transition-colors ml-2">
               <X className="w-6 h-6" />
             </button>
@@ -197,10 +205,27 @@ export default function DetailModal({ analise, onClose }: Props) {
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-[#f0f0f5] mb-2">Últimos Resultados</h3>
-            <div className="bg-[#1a1a25] border border-[#2a2a3a] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-[#f0f0f5]">
+                Resultados
+                <span className="text-[#8888a0] font-normal ml-2">
+                  ({analise.quadrantes.length} total)
+                </span>
+              </h3>
+              {analise.quadrantes.length > 50 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(!showAll)}
+                  className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
+                >
+                  {showAll ? 'Mostrar menos' : `Mostrar todos (${analise.quadrantes.length})`}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+            </div>
+            <div className={`bg-[#1a1a25] border border-[#2a2a3a] rounded-lg overflow-hidden ${showAll ? 'max-h-[600px] overflow-y-auto' : ''}`}>
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-[#1a1a25] z-10">
                   <tr className="border-b border-[#2a2a3a]">
                     <th className="text-left p-2 text-[#8888a0] text-xs">#</th>
                     <th className="text-left p-2 text-[#8888a0] text-xs">Resultado</th>
@@ -209,7 +234,7 @@ export default function DetailModal({ analise, onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {analise.quadrantes.slice(-20).reverse().map((q, i) => (
+                  {(showAll ? analise.quadrantes : analise.quadrantes.slice(-50)).reverse().map((q, i) => (
                     <tr key={`${q.timestamp}-${i}`} className="border-b border-[#2a2a3a]/50">
                       <td className="p-2 text-[#8888a0]">{analise.quadrantes.length - i}</td>
                       <td className="p-2">
