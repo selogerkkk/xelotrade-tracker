@@ -4,17 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const broker_url =
-    env.VITE_BROKER_URL?.replace(/\/$/, '') || 'https://sio.tools'
+  const backendUrl = env.VITE_API_URL || 'http://localhost:3001'
 
   return {
     plugins: [react(), tailwindcss()],
     server: {
       proxy: {
         '/api': {
-          target: broker_url,
+          target: backendUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
     },
