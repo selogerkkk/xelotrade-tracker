@@ -73,9 +73,14 @@ function Dashboard() {
     }
 
     result.sort((a, b) => {
+      const getWr = (x: AnaliseEstrategia) =>
+        filters.gale === 0 ? x.winrateSemGale
+        : filters.gale === 1 ? x.winrateG1
+        : x.winrateReal;
+
       let diff = 0;
       switch (filters.sortBy) {
-        case 'winrate': diff = a.winrateReal - b.winrateReal; break;
+        case 'winrate': diff = getWr(a) - getWr(b); break;
         case 'winrateSemGale': diff = a.winrateSemGale - b.winrateSemGale; break;
         case 'roi': diff = a.roiSemGale - b.roiSemGale; break;
         case 'updated': diff = a.atualizado.localeCompare(b.atualizado); break;
